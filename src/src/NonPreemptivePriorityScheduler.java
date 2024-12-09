@@ -22,23 +22,25 @@ public class NonPreemptivePriorityScheduler {
     public void schedule() {
         int currentTime = 0;
         int completed = 0;
+        boolean isFirstProcess = true;
 
         while (completed < processes.size()) {
-            
+
             int finalCurrentTime = currentTime;
             Process currentProcess = processes.stream()
                     .filter(p -> !p.isCompleted && p.arrivalTime <= finalCurrentTime)
-                    .min(Comparator.comparingInt(p -> p.priority))  
+                    .min(Comparator.comparingInt(p -> p.priority))
                     .orElse(null);
 
             if (currentProcess == null) {
-                currentTime++; 
+                currentTime++;
                 continue;
             }
-            
-            currentTime += contextSwitchTime;
 
-            
+            if (!isFirstProcess) {
+                currentTime += contextSwitchTime; 
+            }
+
             executionOrder.add(currentProcess.name);
             currentTime += currentProcess.burstTime;
             currentProcess.completionTime = currentTime;
@@ -46,6 +48,7 @@ public class NonPreemptivePriorityScheduler {
             currentProcess.waitingTime = currentProcess.turnaroundTime - currentProcess.burstTime;
             currentProcess.isCompleted = true;
 
+            isFirstProcess = false; 
             completed++;
         }
     }
@@ -101,17 +104,15 @@ public class NonPreemptivePriorityScheduler {
                     g = sc.nextInt();
                     b = sc.nextInt();
 
-                    
                     if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255) {
                         throw new IllegalArgumentException("RGB values must be between 0 and 255.");
                     }
                     validColor = true;
                 } catch (Exception e) {
                     System.out.println("Invalid input. Please enter three integers (R G B) between 0 and 255:");
-                    sc.nextLine(); 
+                    sc.nextLine();
                 }
             }
-
 
             System.out.print("Enter Arrival Time: ");
             int arrivalTime = sc.nextInt();
@@ -130,4 +131,3 @@ public class NonPreemptivePriorityScheduler {
         scheduler.displayGraph();
     }
 }
-
