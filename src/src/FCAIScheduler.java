@@ -1,174 +1,184 @@
-import javax.swing.*;
-import java.awt.*;
 import java.util.*;
 
 class Process {
-    String name;
-    int arrivalTime, burstTime, remainingTime, priority, quantum;
-    Color color;
+    String name,id;
+    int arrivalTime, burstTime, priority, remainingTime, quantum, fcaiFactor,turnAroundTime,waitingTime;
+    int originalQuantum;
+    boolean done;
 
-    public Process(String name, int arrivalTime, int burstTime, int priority, int quantum, Color color) {
+    public Process(String id,String name, int arrivalTime, int burstTime, int priority, int quantum) {
+        this.id=id;
         this.name = name;
         this.arrivalTime = arrivalTime;
         this.burstTime = burstTime;
         this.remainingTime = burstTime;
         this.priority = priority;
         this.quantum = quantum;
-        this.color = color;
-    }
-}
-
-public class FCAIScheduler extends JPanel {
-    private ArrayList<Process> processes;
-    private ArrayList<String> executionOrder;
-    private ArrayList<Color> executionColors;
-    private HashMap<String, Integer> processYPositions;
-    private int time = 0;
-    private int contextSwitchTime;
-
-    public FCAIScheduler() {
-        processes = new ArrayList<>();
-        executionOrder = new ArrayList<>();
-        executionColors = new ArrayList<>();
-        processYPositions = new HashMap<>();
-        setPreferredSize(new Dimension(1200, 500));
+        this.originalQuantum = quantum;
     }
 
-    public void addProcess(String name, int arrivalTime, int burstTime, int priority, int quantum, Color color) {
-        processes.add(new Process(name, arrivalTime, burstTime, priority, quantum, color));
-        processYPositions.put(name, processYPositions.size() + 1);
-    }
-
-    public void setContextSwitchTime(int time) {
-        this.contextSwitchTime = time;
-    }
-
-    public void scheduleProcesses() {
-        ArrayList<Process> readyQueue = new ArrayList<>();
-        processes.sort(Comparator.comparingInt(p -> p.arrivalTime)); // Sort by arrival time
-        int index = 0;
-
-        while (index < processes.size() || !readyQueue.isEmpty()) {
-            // Add processes to the queue based on their arrival time
-            while (index < processes.size() && processes.get(index).arrivalTime <= time) {
-                readyQueue.add(processes.get(index));
-                index++;
-            }
-
-            if (!readyQueue.isEmpty()) {
-                // Execute the first process in the queue
-                Process currentProcess = readyQueue.remove(0);
-
-                // Execute 40% of the quantum non-preemptively
-                int executionTime = Math.min((int) Math.ceil(currentProcess.quantum * 0.4), currentProcess.remainingTime);
-                currentProcess.remainingTime -= executionTime;
-
-                // Add the process execution to the graph timeline
-                for (int i = 0; i < executionTime; i++) {
-                    executionOrder.add(currentProcess.name);
-                    executionColors.add(currentProcess.color);
-                }
-                time += executionTime;
-
-                // If process is not complete, add back to queue with updated quantum
-                if (currentProcess.remainingTime > 0) {
-                    currentProcess.quantum += 2; // Quantum increment
-                    readyQueue.add(currentProcess); // Add back to the queue
-                }
-
-                // Add context switch time
-                time += contextSwitchTime;
-
-            } else {
-                // Idle time if no process is ready
-                executionOrder.add("IDLE");
-                executionColors.add(Color.LIGHT_GRAY);
-                time++;
-            }
-        }
-
-        repaint(); // Trigger graphical representation
+    public void calcFcaiFactor(double v1, double v2) {
+        this.fcaiFactor = (int)( Math.ceil(10 - priority) +Math.ceil (arrivalTime / v1) + Math.ceil(remainingTime / v2));
     }
 
     @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
+    public String toString(){
+        return "Process{name= "+name+", Arrival Time="+arrivalTime+", Busrt Time="+burstTime+", Priority="+priority+".}";
+    }
+}
 
-        // Draw Axes
-        g.setColor(Color.BLACK);
-        g.drawLine(50, 50, 50, 400); // Y-axis
-        g.drawLine(50, 400, 1150, 400); // X-axis
-
-        // Label Axes
-        g.drawString("Processes", 10, 30); // Y-axis label
-        g.drawString("Time", 1120, 420); // X-axis label
-
-        // Draw processes and execution timeline
-        int xPosition = 60; // Start position on the X-axis
-        int barHeight = 30;
-
-        for (String processName : executionOrder) {
-            int yPosition = processYPositions.getOrDefault(processName, 0) * barHeight + 50;
-
-            if (processName.equals("IDLE")) {
-                g.setColor(Color.LIGHT_GRAY);
-            } else {
-                Process process = processes.stream().filter(p -> p.name.equals(processName)).findFirst().orElse(null);
-                if (process != null) {
-                    g.setColor(process.color);
-                }
-            }
-
-            g.fillRect(xPosition, yPosition, 20, barHeight - 10);
-            g.setColor(Color.BLACK);
-            g.drawRect(xPosition, yPosition, 20, barHeight - 10);
-            xPosition += 20; // Increment time step
+public class FCAIScheduler {
+    List<Process>processes;
+    List<Process>tempProcesses;
+    double v1,v2, AvgTurnaroundTime=0, AvgWaitingTime=0;
+    List<Vector<Integer>> changesQuantum=new ArrayList<>();
+    private List<String>processOrder=new LinkedList<String>();
+    FCAIScheduler(List<Process>processes){
+        this.processes=processes;
+        this.tempProcesses=new ArrayList<>(Collections.nCopies(processes.size(),null));
+        this.v1=0;
+        this.v2=0;
+        for(Process p: processes){
+            v1=Math.max(v1,p.arrivalTime);
+            v2=Math.max(v2,p.burstTime);
         }
-
-        // Label process names on the Y-axis
-        for (Process process : processes) {
-            int yPosition = processYPositions.get(process.name) * barHeight + 50;
-            g.drawString(process.name, 10, yPosition + (barHeight / 2));
+        v1/=10;
+        v2/=10;
+        for(int i=0;i<processes.size();i++){
+            changesQuantum.add(new Vector<>());
         }
     }
+    public void simulateFCAIFactor(){
+        for(Process p: processes){
+            p.calcFcaiFactor(v1,v2);
+            changesQuantum.get(Integer.parseInt(p.id)-1).add(p.quantum);
+        }
+        Deque<Process>readyQueue=new LinkedList<>();
+        int currentTime=0;
+        int done=0;
+        boolean completed=false;
+        int processesSize=processes.size();
+        String lastId="";
+        while(done<processesSize){
+            Iterator<Process>it=processes.iterator();
+            while(it.hasNext()){
+                Process p=it.next();
+                if(p.arrivalTime<=currentTime){
+                    readyQueue.add(p);
+                    it.remove();
+                }
+            }
+            if(readyQueue.isEmpty()){
+                currentTime++;
+                continue;
+            }
+            int minFCAIFactor=(int)1e9;
+            Process currentProcess=null;
+            if(!completed){
+                for(Process p:readyQueue){
+                    if(p.fcaiFactor<minFCAIFactor&&(!p.id.equals(lastId) || readyQueue.size()==1)){
+                        minFCAIFactor=p.fcaiFactor;
+                        currentProcess=p;
+                    }
+                }
+                if(currentProcess!=null){
+                    readyQueue.remove(currentProcess);
+                }
+            }
+            else{
+                currentProcess=readyQueue.pollFirst();
+                if(currentProcess!=null){
+                    minFCAIFactor=currentProcess.fcaiFactor;
+                }
+            }
+            lastId=currentProcess.id;
+            processOrder.add(currentProcess.name);
+            int unusedQuantum=currentProcess.quantum;
+            int execTime=(int) Math.min(Math.ceil(0.4*currentProcess.quantum),currentProcess.remainingTime);
+            int timeBefore=currentTime;
+            currentProcess.waitingTime=currentTime-currentProcess.arrivalTime-(currentProcess.burstTime-currentProcess.remainingTime);
+            currentTime+=execTime;
+            unusedQuantum-=execTime;
+            currentProcess.remainingTime-=execTime;
 
-    public static void main(String[] args) {
-        FCAIScheduler scheduler = new FCAIScheduler();
+            boolean found=false;
+            while (currentProcess.remainingTime>0 &&unusedQuantum>0){
+                Iterator<Process>it1=processes.iterator();
+                while (it1.hasNext()){
+                    Process p=it1.next();
+                    if(p.arrivalTime<=currentTime){
+                        readyQueue.add(p);
+                        it1.remove();
+                    }
+                }
+                for(Process p: readyQueue){
+                    if(p.fcaiFactor<minFCAIFactor){
+                        found=true;
+                        currentProcess.calcFcaiFactor(v1,v2);
+                        if(currentProcess.remainingTime>0)
+                            readyQueue.add(currentProcess);
+                        break;
+                    }
+                }
+                if(found)
+                    break;
+                unusedQuantum--;
+                currentProcess.remainingTime--;
+                execTime++;
+                currentTime++;
+            }
+            if(unusedQuantum>0)
+                currentProcess.quantum+=unusedQuantum;
+            else currentProcess.quantum+=2;
+            currentProcess.turnAroundTime=currentTime-currentProcess.arrivalTime;
+            if(currentProcess.remainingTime>0){
+                changesQuantum.get(Integer.parseInt(currentProcess.id)-1).add(currentProcess.quantum);
+                if(!found){
+                    int oldFcai=currentProcess.fcaiFactor;
+                    currentProcess.calcFcaiFactor(v1,v2);
+                    readyQueue.add(currentProcess);
+                    completed=true;
+                }
+                else completed=false;
+            }
+            else{
+                AvgWaitingTime+=currentTime-currentProcess.arrivalTime-(currentProcess.burstTime);
+                AvgTurnaroundTime+=currentTime-currentProcess.arrivalTime;
+                tempProcesses.set(Integer.parseInt(currentProcess.id)-1,currentProcess);
+                completed=true;
+                System.out.println("Process name: " + currentProcess.id + " completed.");
+                done++;
+            }
+        }
+        System.out.println("Processes Order: "+processOrder.toString()+ "\n");
 
-        // User Input
-        Scanner sc = new Scanner(System.in);
-
-        System.out.print("Enter number of processes: ");
-        int numProcesses = sc.nextInt();
-
-        System.out.print("Enter context switching time: ");
-        int contextSwitchTime = sc.nextInt();
-        scheduler.setContextSwitchTime(contextSwitchTime);
-
-        for (int i = 0; i < numProcesses; i++) {
-            System.out.println("Process " + (i + 1) + ": ");
-            System.out.print("Name: ");
-            String name = sc.next();
-            System.out.print("Arrival Time: ");
-            int arrivalTime = sc.nextInt();
-            System.out.print("Burst Time: ");
-            int burstTime = sc.nextInt();
-            System.out.print("Priority: ");
-            int priority = sc.nextInt();
-            System.out.print("Initial Quantum: ");
-            int quantum = sc.nextInt();
-
-            Color color = new Color((int) (Math.random() * 0x1000000));
-            scheduler.addProcess(name, arrivalTime, burstTime, priority, quantum, color);
+        for(Process p:tempProcesses){
+            if(p!=null){
+                System.out.println("Process "+p.name+": Turnaround Time= "+p.turnAroundTime+
+                        ", Waiting Time= "+p.waitingTime);
+            }
         }
 
-        JFrame frame = new JFrame("FCAI Scheduling Graph");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.getContentPane().add(scheduler);
-        frame.pack();
-        frame.setVisible(true);
+        System.out.println("Average Waiting Time: "+(AvgWaitingTime/tempProcesses.size())+"\n"+
+        "Average Turnarount Time: "+(AvgTurnaroundTime/tempProcesses.size())+"\n");
 
-        // Run Scheduler
-        scheduler.scheduleProcesses();
+        int processIndex = 1;
+        for (Vector<Integer> quantumChanges : changesQuantum) {
+            System.out.println( "Process " + processIndex++ + ": " + quantumChanges.toString() + "\n");
+        }
+    }
+    public static void main(String[] args) {
+        List<Process> processes = new ArrayList<>(Arrays.asList(
+                new Process("1", "P1", 0, 17, 4, 4),
+                new Process("2", "P2", 3, 6, 9, 3),
+                new Process("3", "P3", 4, 10, 3, 5),
+                new Process("4", "P4", 29, 4, 8, 2)
+        ));
+
+        // Instantiate the scheduler with the process list
+        FCAIScheduler scheduler = new FCAIScheduler(processes);
+
+        // Simulate the FCAI scheduling algorithm
+        scheduler.simulateFCAIFactor();
     }
 }
