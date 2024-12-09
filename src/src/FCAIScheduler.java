@@ -19,7 +19,7 @@ class fcaiProcess {
         this.priority = priority;
         this.quantum = quantum;
         this.originalQuantum = quantum;
-        this.color = color ; // Default color is white if null
+        this.color = color ; 
     }
 
     public void calcFcaiFactor(double v1, double v2) {
