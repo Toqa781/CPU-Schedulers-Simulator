@@ -1,12 +1,16 @@
 import java.util.*;
+import javax.swing.*;
+import java.awt.*;
+import java.util.List;
 
 class fcaiProcess {
+    public String color;
     String name, id;
     int arrivalTime, burstTime, priority, remainingTime, quantum, fcaiFactor, turnAroundTime, waitingTime;
     int originalQuantum;
     boolean done;
 
-    public fcaiProcess(String id, String name, int arrivalTime, int burstTime, int priority, int quantum) {
+    public fcaiProcess(String id, String name, int arrivalTime, int burstTime, int priority, int quantum, String color) {
         this.id = id;
         this.name = name;
         this.arrivalTime = arrivalTime;
@@ -15,6 +19,7 @@ class fcaiProcess {
         this.priority = priority;
         this.quantum = quantum;
         this.originalQuantum = quantum;
+        this.color = color ; // Default color is white if null
     }
 
     public void calcFcaiFactor(double v1, double v2) {
@@ -27,12 +32,108 @@ class fcaiProcess {
     }
 }
 
+class GUI {
+    private final JFrame frame;
+    private final JPanel chartPanel;
+    private final JTextArea procssExecution;
+    private final Map<Integer, JPanel> processLines;
+    private final Map<Integer, Integer> processEndTimes;
+    private final int processHeight = 30;
+    private final int timeWidth = 25;
+
+    public GUI(int numOfProcesses) {
+
+        // Setup JFrame
+        frame = new JFrame("FCAI Scheduling");
+        frame.setSize(1000, 400);
+
+        //GRAPH
+        chartPanel = new JPanel();
+        chartPanel.setLayout(new GridBagLayout());
+        chartPanel.setBackground(Color.BLACK);
+        JScrollPane chartScrollPane = new JScrollPane(chartPanel);
+        frame.add(chartScrollPane, BorderLayout.CENTER);
+
+        // process execution area (at the bottom)
+        procssExecution = new JTextArea();
+        procssExecution.setBackground(Color.BLACK);
+        procssExecution.setForeground(Color.WHITE);
+        JScrollPane statisticsScrollPane = new JScrollPane(procssExecution);
+        frame.add(statisticsScrollPane, BorderLayout.SOUTH);
+
+        // Initialize process lines and end times
+        processLines = new HashMap<>();
+        processEndTimes = new HashMap<>();
+
+        // Create process rows
+        for (int i = 1; i <= numOfProcesses; i++) {
+            JPanel processLine = new JPanel();
+            processLine.setLayout(new FlowLayout(FlowLayout.LEFT, 0, 0));//row starting from left with no space
+            processLine.setBackground(Color.BLACK);
+
+            // Process name
+            JLabel nameLabel = new JLabel("P" + i);
+            nameLabel.setBackground(Color.BLACK);
+            nameLabel.setForeground(Color.WHITE);//text
+            nameLabel.setPreferredSize(new Dimension(50, processHeight));
+            processLine.add(nameLabel);
+
+            // Add process line to graph
+            chartPanel.add(processLine, new GridBagConstraints(0, i - 1, 1, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(0, 0, 0, 0), 0, 0));
+            processLines.put(i, processLine);
+        }
+
+        frame.setVisible(true);
+    }
+
+    public void updateGUI(int startTime, fcaiProcess p, int execTime) {
+        int pnumber = Integer.parseInt(p.id);
+        JPanel processLine = processLines.get(pnumber);
+
+        if (processLine != null) {
+            // Calculate idle time (if there's a gap between last end time and the current start time)
+            int lastEndTime = processEndTimes.getOrDefault(pnumber, 0);
+            int idleTime = Math.max(0, startTime - lastEndTime);
+
+            // Handle idle time
+            if (idleTime > 0) {
+                for (int i = 0; i < idleTime; i++) {
+                    JLabel idleBlock = new JLabel();
+                    idleBlock.setBackground(Color.BLACK);
+                    idleBlock.setPreferredSize(new Dimension(timeWidth, processHeight));
+                    processLine.add(idleBlock);
+                }
+            }
+
+            // Handle execution block
+            for (int i = 0; i < execTime; i++) {
+                JLabel processBlock = new JLabel();
+                processBlock.setOpaque(true);
+                processBlock.setBackground(Color.decode(p.color));
+                processBlock.setPreferredSize(new Dimension(timeWidth, processHeight));
+                processLine.add(processBlock);
+            }
+
+            processEndTimes.put(pnumber, startTime + execTime);
+
+            processLine.revalidate();
+            processLine.repaint();
+        }
+    }
+
+    public void updateProcessExec(String statistics) {
+        procssExecution.setText(statistics);
+    }
+}
+
+
 public class FCAIScheduler {
     List<fcaiProcess> processes;
     List<fcaiProcess> tempProcesses;
     double v1, v2, AvgTurnaroundTime = 0, AvgWaitingTime = 0;
     List<Vector<Integer>> changesQuantum = new ArrayList<>();
     private List<String> processOrder = new LinkedList<>();
+    private GUI gui;
 
     FCAIScheduler(List<fcaiProcess> processes) {
         this.processes = processes;
@@ -48,6 +149,7 @@ public class FCAIScheduler {
         for (int i = 0; i < processes.size(); i++) {
             changesQuantum.add(new Vector<>());
         }
+        this.gui = new GUI(processes.size()); // Initialize the GUI
     }
 
     public void simulateFCAIFactor() {
@@ -55,6 +157,7 @@ public class FCAIScheduler {
             p.calcFcaiFactor(v1, v2);
             changesQuantum.get(Integer.parseInt(p.id) - 1).add(p.quantum);
         }
+
         Deque<fcaiProcess> readyQueue = new LinkedList<>();
         int currentTime = 0;
         int done = 0;
@@ -75,6 +178,7 @@ public class FCAIScheduler {
                 currentTime++;
                 continue;
             }
+
             int minFCAIFactor = (int) 1e9;
             fcaiProcess currentProcess = null;
             if (!completed) {
@@ -93,11 +197,11 @@ public class FCAIScheduler {
                     minFCAIFactor = currentProcess.fcaiFactor;
                 }
             }
+
             lastId = currentProcess.id;
             processOrder.add(currentProcess.name);
             int unusedQuantum = currentProcess.quantum;
             int execTime = (int) Math.min(Math.ceil(0.4 * currentProcess.quantum), currentProcess.remainingTime);
-            int timeBefore = currentTime;
             currentProcess.waitingTime = currentTime - currentProcess.arrivalTime - (currentProcess.burstTime - currentProcess.remainingTime);
             currentTime += execTime;
             unusedQuantum -= execTime;
@@ -129,14 +233,15 @@ public class FCAIScheduler {
                 execTime++;
                 currentTime++;
             }
+
             if (unusedQuantum > 0)
                 currentProcess.quantum += unusedQuantum;
             else currentProcess.quantum += 2;
+
             currentProcess.turnAroundTime = currentTime - currentProcess.arrivalTime;
             if (currentProcess.remainingTime > 0) {
                 changesQuantum.get(Integer.parseInt(currentProcess.id) - 1).add(currentProcess.quantum);
                 if (!found) {
-                    int oldFcai = currentProcess.fcaiFactor;
                     currentProcess.calcFcaiFactor(v1, v2);
                     readyQueue.add(currentProcess);
                     completed = true;
@@ -146,40 +251,40 @@ public class FCAIScheduler {
                 AvgTurnaroundTime += currentTime - currentProcess.arrivalTime;
                 tempProcesses.set(Integer.parseInt(currentProcess.id) - 1, currentProcess);
                 completed = true;
-                System.out.println("Process " + currentProcess.name + " completed.");
                 done++;
             }
+
+            gui.updateGUI(currentTime - execTime, currentProcess, execTime);
         }
-        System.out.println("Processes Order: " + processOrder.toString() + "\n");
+
+        StringBuilder statistics = new StringBuilder("Processes Order: " + processOrder.toString() + "\n\n");
 
         for (fcaiProcess p : tempProcesses) {
             if (p != null) {
-                System.out.println("Process " + p.name + ": Turnaround Time= " + p.turnAroundTime +
-                        ", Waiting Time= " + p.waitingTime);
+                statistics.append("Process " + p.name + ": Turnaround Time= " + p.turnAroundTime +
+                        ", Waiting Time= " + p.waitingTime + "\n");
             }
         }
-
-        System.out.println("Average Waiting Time: " + (AvgWaitingTime / tempProcesses.size()) + "\n" +
-                "Average Turnaround Time: " + (AvgTurnaroundTime / tempProcesses.size()) + "\n");
-
         int processIndex = 1;
         for (Vector<Integer> quantumChanges : changesQuantum) {
-            System.out.println("Process " + processIndex++ + ": " + quantumChanges.toString() + "\n");
+            statistics.append( "Process " + processIndex++ + ": " + quantumChanges.toString() + "\n");
         }
+
+        statistics.append("\nAverage Waiting Time: " + (AvgWaitingTime / tempProcesses.size()) + "\n" +
+                "Average Turnaround Time: " + (AvgTurnaroundTime / tempProcesses.size()) + "\n");
+
+        gui.updateProcessExec(statistics.toString());
     }
 
     public static void main(String[] args) {
         List<fcaiProcess> processes = new ArrayList<>(Arrays.asList(
-                new fcaiProcess("1", "P1", 0, 17, 4, 4),
-                new fcaiProcess("2", "P2", 3, 6, 9, 3),
-                new fcaiProcess("3", "P3", 4, 10, 3, 5),
-                new fcaiProcess("4", "P4", 29, 4, 8, 2)
+                new fcaiProcess("1", "P1", 0, 17, 4, 4, "#6D1685"),//purple
+                new fcaiProcess("2", "P2", 3, 6, 9, 3, "#8D6F64"),//tan
+                new fcaiProcess("3", "P3", 4, 10, 3, 5, "#2A5519"),//green
+                new fcaiProcess("4", "P4", 29, 4, 10, 2, "#EFC3CA")//rose
         ));
 
-        // Instantiate the scheduler with the process list
         FCAIScheduler scheduler = new FCAIScheduler(processes);
-
-        // Simulate the FCAI scheduling algorithm
         scheduler.simulateFCAIFactor();
     }
 }
