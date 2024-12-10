@@ -25,7 +25,6 @@ public class NonPreemptivePriorityScheduler {
         boolean isFirstProcess = true;
 
         while (completed < processes.size()) {
-
             int finalCurrentTime = currentTime;
             Process currentProcess = processes.stream()
                     .filter(p -> !p.isCompleted && p.arrivalTime <= finalCurrentTime)
@@ -37,21 +36,26 @@ public class NonPreemptivePriorityScheduler {
                 continue;
             }
 
+            // Calculate the start and end times including context switch
             if (!isFirstProcess) {
-                currentTime += contextSwitchTime; 
+                currentTime += contextSwitchTime; // Account for context switch
             }
 
+            currentProcess.startTime = currentTime;
             executionOrder.add(currentProcess.name);
             currentTime += currentProcess.burstTime;
+            currentProcess.endTime = currentTime;
+
             currentProcess.completionTime = currentTime;
             currentProcess.turnaroundTime = currentProcess.completionTime - currentProcess.arrivalTime;
             currentProcess.waitingTime = currentProcess.turnaroundTime - currentProcess.burstTime;
             currentProcess.isCompleted = true;
 
-            isFirstProcess = false; 
+            isFirstProcess = false;
             completed++;
         }
     }
+
 
     public void printResults() {
         System.out.println("Processes Execution Order: " + executionOrder);
@@ -75,9 +79,113 @@ public class NonPreemptivePriorityScheduler {
         JFrame frame = new JFrame("Non-Preemptive Priority Scheduler");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(800, 400);
-        frame.add(new GraphPanel(processes, executionOrder));
+        frame.add(new GraphPanel(processes, executionOrder, contextSwitchTime));
         frame.setVisible(true);
     }
+    class GraphPanel extends JPanel {
+        private List<Process> processes;
+        private List<String> executionOrder;
+        private int contextSwitchTime;
+
+        public GraphPanel(List<Process> processes, List<String> executionOrder, int contextSwitchTime) {
+            this.processes = processes;
+            this.executionOrder = executionOrder;
+            this.contextSwitchTime = contextSwitchTime;
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+
+            int chartX = 50, chartY = 50;
+            int barHeight = 50;
+            int unitWidth = 10; // Width for 1 unit of time (scaled for better visibility)
+            int tableY = 250;   // Starting Y-coordinate for the table
+
+            // Draw Gantt Chart Title
+            g.setColor(Color.BLACK);
+            g.drawString("Gantt Chart", getWidth() / 2 - 50, chartY - 10);
+
+            // Draw Gantt Chart
+            int x = chartX;
+            int currentTime = 0;
+
+            // Draw the initial "0" time marker
+            g.setColor(Color.BLACK);
+            g.drawString("0", x - 10, chartY + barHeight + 20);
+
+            // Process each process from the execution order
+            for (String processName : executionOrder) {
+                Process current = processes.stream().filter(p -> p.name.equals(processName)).findFirst().orElse(null);
+                if (current == null) continue;
+
+                // Calculate bar width based on completion time minus current time
+                int barWidth = (current.completionTime - currentTime) * unitWidth;
+
+                // Draw process bar
+                g.setColor(current.color);
+                g.fillRect(x, chartY, barWidth, barHeight);
+
+                // Draw border and label
+                g.setColor(Color.BLACK);
+                g.drawRect(x, chartY, barWidth, barHeight);
+                g.drawString(current.name, x + barWidth / 2 - 10, chartY + barHeight / 2 + 5);
+
+                // Advance x position and update time markers
+                currentTime = current.completionTime;
+                x += barWidth;
+
+                // Draw time markers for process completion
+                g.drawString(String.valueOf(currentTime), x - 10, chartY + barHeight + 20);
+
+                // If not the last process, account for context switch time
+                if (executionOrder.indexOf(processName) < executionOrder.size() - 1) {
+                    x += contextSwitchTime * unitWidth; // Add context switch gap between processes
+                    g.drawString("+" + contextSwitchTime, x - 10, chartY + barHeight + 20); // Display context switch time
+                }
+            }
+
+            // Draw Table Title
+            g.setColor(Color.BLACK);
+            g.drawString("Process Details", getWidth() / 2 - 50, tableY - 10);
+
+            // Draw Table Headers
+            int rowHeight = 20;
+            int colWidth = getWidth() / 7; // Seven columns: Name, Arrival, Burst, Priority, Completion, Turnaround, Waiting
+            String[] headers = {"Name", "Arrival", "Burst", "Priority", "Completion", "Turnaround", "Waiting"};
+
+            int tableX = 50;
+            int y = tableY;
+            for (String header : headers) {
+                g.drawRect(tableX, y, colWidth, rowHeight);
+                g.drawString(header, tableX + 10, y + rowHeight - 5);
+                tableX += colWidth;
+            }
+
+            // Draw Table Data
+            y += rowHeight; // Move to the next row for data
+            for (Process process : processes) {
+                tableX = 50; // Reset x position
+                String[] data = {
+                        process.name,
+                        String.valueOf(process.arrivalTime),
+                        String.valueOf(process.burstTime),
+                        String.valueOf(process.priority),
+                        String.valueOf(process.completionTime),
+                        String.valueOf(process.turnaroundTime),
+                        String.valueOf(process.waitingTime)
+                };
+
+                for (String value : data) {
+                    g.drawRect(tableX, y, colWidth, rowHeight);
+                    g.drawString(value, tableX + 10, y + rowHeight - 5);
+                    tableX += colWidth;
+                }
+                y += rowHeight; // Move to the next row for the next process
+            }
+        }
+    }
+
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
