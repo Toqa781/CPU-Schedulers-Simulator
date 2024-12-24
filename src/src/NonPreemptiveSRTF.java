@@ -6,19 +6,35 @@ import java.util.List;
 import java.util.Scanner;
 
 public class NonPreemptiveSRTF {
-    private List<Process> processes = new ArrayList<>();
-    private List<String> executionOrder = new ArrayList<>();
+    private final List<Process> processes = new ArrayList<>();
+    private final List<String> executionOrder = new ArrayList<>();
+    private int contextSwitchTime;
 
+    //constructor to initialize the context switch time
+    public NonPreemptiveSRTF(int contextSwitchTime) {
+        this.contextSwitchTime = contextSwitchTime;
+    }
+
+    //method to add a process to the list of processes
     public void addProcess(Process process) {
         processes.add(process);
     }
 
+    //method to schedule the processes
     public void schedule() {
-        int currentTime = 0;
-        int completed = 0;
+        int currentTime = 0; // Tracks the current system time
+        int completed = 0;   // Tracks the number of completed processes
+        Process previousProcess = null; // Tracks the process executed in the previous cycle
 
+        // calculating waiting time for each process.
         while (completed < processes.size()) {
-            // Find the process with the shortest remaining time
+            for (Process process : processes) {
+                if (!process.isCompleted && process.arrivalTime <= currentTime && process != previousProcess) {
+                    process.waitingTime++; // Increment waiting time for aging
+                }
+            }
+
+            // Find the process with the shortest remaining burst time that is ready to execute
             int finalCurrentTime = currentTime;
             Process currentProcess = processes.stream()
                     .filter(p -> !p.isCompleted && p.arrivalTime <= finalCurrentTime)
@@ -26,16 +42,26 @@ public class NonPreemptiveSRTF {
                     .orElse(null);
 
             if (currentProcess == null) {
+                // No process is ready, simulate idle time
+                executionOrder.add("Idle");
                 currentTime++;
                 continue;
             }
 
-            // Simulate execution of the process for one time unit (context switching included)
+            // Add context switch time if needed
+            if (previousProcess != null && !currentProcess.equals(previousProcess)) {
+                for (int i = 0; i < contextSwitchTime; i++) {
+                    executionOrder.add("CS");
+                    currentTime++;
+                }
+            }
+
+            // Execute the current process
             executionOrder.add(currentProcess.name);
             currentProcess.remainingBurstTime--;
             currentTime++;
 
-            // If the process finishes execution
+            // Check if the current process is completed
             if (currentProcess.remainingBurstTime == 0) {
                 currentProcess.isCompleted = true;
                 currentProcess.completionTime = currentTime;
@@ -43,6 +69,9 @@ public class NonPreemptiveSRTF {
                 currentProcess.waitingTime = currentProcess.turnaroundTime - currentProcess.burstTime;
                 completed++;
             }
+
+            // Update reference to the last executed process
+            previousProcess = currentProcess;
         }
     }
 
@@ -59,7 +88,7 @@ public class NonPreemptiveSRTF {
             totalWaitingTime += process.waitingTime;
             totalTurnaroundTime += process.turnaroundTime;
         }
-
+        System.out.printf("\nContext Switch Time: " + contextSwitchTime);
         System.out.printf("\nAverage Waiting Time: %.2f\n", (double) totalWaitingTime / processes.size());
         System.out.printf("Average Turnaround Time: %.2f\n", (double) totalTurnaroundTime / processes.size());
     }
@@ -73,8 +102,8 @@ public class NonPreemptiveSRTF {
     }
 
     static class GraphPanel extends JPanel {
-        private List<Process> processes;
-        private List<String> executionOrder;
+        private final List<Process> processes;
+        private final List<String> executionOrder;
 
         public GraphPanel(List<Process> processes, List<String> executionOrder) {
             this.processes = processes;
@@ -88,112 +117,119 @@ public class NonPreemptiveSRTF {
             int width = getWidth();
             int height = getHeight();
             int barHeight = 50;
-            int timeWidth = width / executionOrder.size();
-            int tableY = 200;
-
+            int timeWidth = Math.max(width / executionOrder.size(), 1); // Ensure timeWidth is non-zero
             int x = 0;
 
             for (int i = 0; i < executionOrder.size(); i++) {
                 String processName = executionOrder.get(i);
 
-                // Find the process by name
-                Process process = processes.stream()
-                        .filter(p -> p.name.equals(processName))
-                        .findFirst()
-                        .orElse(null);
-
-                if (process != null) {
-                    // Set the color of the process
-                    g.setColor(process.color);
+                if (processName.equals("Idle")) {
+                    g.setColor(Color.LIGHT_GRAY);
                     g.fillRect(x, height / 2 - barHeight / 2, timeWidth, barHeight);
-
-                    // Draw process name
+                    g.setColor(Color.black);
+                    g.drawString("Idle", x + timeWidth / 2 - 10, height / 2 - barHeight / 2 - 5);
+                } else if (processName.equals("CS")) {
+                    g.setColor(Color.YELLOW);
+                    g.fillRect(x, height / 2 - barHeight / 2, timeWidth, barHeight);
                     g.setColor(Color.BLACK);
-                    g.drawString(process.name, x + timeWidth / 2 - 10, height / 2 - barHeight / 2 - 5);
+                    g.drawString("CS", x + timeWidth / 2 - 10, height / 2 - barHeight / 2 - 5);
+                } else {
+                    Process process = processes.stream()
+                            .filter(p -> p.name.equals(processName))
+                            .findFirst()
+                            .orElse(null);
+
+                    if (process != null) {
+                        g.setColor(process.color);
+                        g.fillRect(x, height / 2 - barHeight / 2, timeWidth, barHeight);
+                        g.setColor(Color.BLACK);
+                        g.drawString(process.name, x + timeWidth / 2 - 10, height / 2 - barHeight / 2 - 5);
+                    }
                 }
 
-                // Draw time markers
                 g.setColor(Color.BLACK);
                 g.drawString(String.valueOf(i), x, height / 2 + barHeight / 2 + 15);
 
                 x += timeWidth;
             }
-            g.setColor(Color.BLACK);
-            g.drawString("Process Details", getWidth() / 2 - 50, tableY - 10);
-
-
-            int rowHeight = 20;
-            int colWidth = getWidth() / 7;
-            String[] headers = {"Name", "Arrival", "Burst", "Completion", "Turnaround", "Waiting"};
-
-            int tableX = 50;
-            int y = tableY;
-            for (String header : headers) {
-                g.drawRect(tableX, y, colWidth, rowHeight);
-                g.drawString(header, tableX + 10, y + rowHeight - 5);
-                tableX += colWidth;
-            }
-
-
-            y += rowHeight;
-            for (Process process : processes) {
-                tableX = 50;
-                String[] data = {
-                        process.name,
-                        String.valueOf(process.arrivalTime),
-                        String.valueOf(process.burstTime),
-                        String.valueOf(process.completionTime),
-                        String.valueOf(process.turnaroundTime),
-                        String.valueOf(process.waitingTime)
-                };
-
-                for (String value : data) {
-                    g.drawRect(tableX, y, colWidth, rowHeight);
-                    g.drawString(value, tableX + 10, y + rowHeight - 5);
-                    tableX += colWidth;
-                }
-                y += rowHeight;
-            }
         }
     }
 
-
-
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-
-        int n;
+    private static NonPreemptiveSRTF readFromConsole(Scanner scanner) {
         System.out.print("Enter number of processes: ");
-        try {
-             n = sc.nextInt();
-        } catch (Exception e) {
-            System.out.println("Invalid input. Please enter a valid number.");
-            return;
-        }
-        NonPreemptiveSRTF scheduler = new NonPreemptiveSRTF();
+        int n = scanner.nextInt();
+
+        System.out.print("Enter context switching time: ");
+        int contextSwitchTime = scanner.nextInt();
+
+        NonPreemptiveSRTF scheduler = new NonPreemptiveSRTF(contextSwitchTime);
 
         for (int i = 0; i < n; i++) {
             System.out.print("Enter Process Name: ");
-            String name = sc.next();
+            String name = scanner.next();
 
             System.out.print("Enter Process Color (R G B): ");
-            int r = sc.nextInt();
-            int g = sc.nextInt();
-            int b = sc.nextInt();
+            int r = scanner.nextInt();
+            int g = scanner.nextInt();
+            int b = scanner.nextInt();
 
             System.out.print("Enter Arrival Time: ");
-            int arrivalTime = sc.nextInt();
+            int arrivalTime = scanner.nextInt();
 
             System.out.print("Enter Burst Time: ");
-            int burstTime = sc.nextInt();
+            int burstTime = scanner.nextInt();
 
-            Process process = new Process(name, new Color(r, g, b), arrivalTime, burstTime);
-            process.remainingBurstTime = burstTime; // Initialize remaining burst time
-            scheduler.addProcess(process);
+            scheduler.addProcess(new Process(name, new Color(r, g, b), arrivalTime, burstTime));
         }
 
+        return scheduler;
+    }
+
+    private static NonPreemptiveSRTF readFromFile(String fileName) {
+        NonPreemptiveSRTF scheduler = null;
+
+        try (Scanner fileScanner = new Scanner(new java.io.File(fileName))) {
+            // Read number of processes
+            int n = fileScanner.nextInt();
+
+            // Read context switching time
+            int contextSwitchTime = fileScanner.nextInt();
+
+            scheduler = new NonPreemptiveSRTF(contextSwitchTime);
+
+            // Read process data
+            for (int i = 0; i < n; i++) {
+                String name = fileScanner.next();
+                int r = fileScanner.nextInt();
+                int g = fileScanner.nextInt();
+                int b = fileScanner.nextInt();
+                int arrivalTime = fileScanner.nextInt();
+                int burstTime = fileScanner.nextInt();
+
+                scheduler.addProcess(new Process(name, new Color(r, g, b), arrivalTime, burstTime));
+            }
+        } catch (java.io.FileNotFoundException e) {
+            System.out.println("File not found: " + fileName);
+        }
+
+        return scheduler;
+    }
+
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        System.out.print("Enter 1 to use console input or 2 to read from file: ");
+        int choice = scanner.nextInt();
+
+        NonPreemptiveSRTF scheduler;
+        if (choice == 2) {
+            String fileName = "input.txt";
+            scheduler = readFromFile(fileName);
+        } else {
+            scheduler = readFromConsole(scanner);
+        }
         scheduler.schedule();
         scheduler.printResults();
         scheduler.displayGraph();
     }
 }
+
