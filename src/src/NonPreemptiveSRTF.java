@@ -10,6 +10,8 @@ public class NonPreemptiveSRTF {
     private final List<String> executionOrder = new ArrayList<>();
     private int contextSwitchTime;
 
+    //default constructor
+    public NonPreemptiveSRTF() {}
     //constructor to initialize the context switch time
     public NonPreemptiveSRTF(int contextSwitchTime) {
         this.contextSwitchTime = contextSwitchTime;
@@ -155,7 +157,7 @@ public class NonPreemptiveSRTF {
         }
     }
 
-    private static NonPreemptiveSRTF readFromConsole(Scanner scanner) {
+    static NonPreemptiveSRTF readFromConsole(Scanner scanner) {
         System.out.print("Enter number of processes: ");
         int n = scanner.nextInt();
 
@@ -185,7 +187,7 @@ public class NonPreemptiveSRTF {
         return scheduler;
     }
 
-    private static NonPreemptiveSRTF readFromFile(String fileName) {
+    static NonPreemptiveSRTF readFromFile(String fileName) {
         NonPreemptiveSRTF scheduler = null;
 
         try (Scanner fileScanner = new Scanner(new java.io.File(fileName))) {

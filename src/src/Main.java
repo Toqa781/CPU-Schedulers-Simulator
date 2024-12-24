@@ -42,31 +42,20 @@ public class Main {
                 scheduler.displayGraph();
                 break;
             case 2:
-                System.out.print("Enter the number of processes: ");
-                int j = scanner.nextInt();
-                NonPreemptiveSRTF scheduler1 = new NonPreemptiveSRTF();
-                for (int i = 0; i < j; i++) {
-                    System.out.print("Enter Process Name: ");
-                    String name = scanner.next();
+                System.out.print("Enter 1 to use console input or 2 to read from file: ");
+                int SRTFchoice = scanner.nextInt();
 
-                    System.out.print("Enter Process Color (R G B): ");
-                    int r = scanner.nextInt();
-                    int g = scanner.nextInt();
-                    int b = scanner.nextInt();
-
-                    System.out.print("Enter Arrival Time: ");
-                    int arrivalTime = scanner.nextInt();
-
-                    System.out.print("Enter Burst Time: ");
-                    int burstTime = scanner.nextInt();
-
-                    Process process = new Process(name, new Color(r, g, b), arrivalTime, burstTime);
-                    process.remainingBurstTime = burstTime; // Initialize remaining burst time
-                    scheduler1.addProcess(process);
+                NonPreemptiveSRTF SRTFscheduler;
+                if (SRTFchoice == 2) {
+                    String fileName = "input.txt";
+                    SRTFscheduler = NonPreemptiveSRTF.readFromFile(fileName);
+                } else {
+                    SRTFscheduler = NonPreemptiveSRTF.readFromConsole(scanner);
                 }
-                scheduler1.schedule();
-                scheduler1.printResults();
-                scheduler1.displayGraph();
+                SRTFscheduler.schedule();
+                SRTFscheduler.printResults();
+                SRTFscheduler.displayGraph();
+
                 break;
             case 3:
                 System.out.print("Enter the number of processes: ");
