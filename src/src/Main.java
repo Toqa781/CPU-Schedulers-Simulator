@@ -10,7 +10,7 @@ public class Main {
         Scanner scanner = new Scanner(System.in);
         System.out.println("Enter the scheduler you want to use: ");
         System.out.println("1. Non-Preemptive SJF");
-        System.out.println("2. Non-Preemptive SRTF");
+        System.out.println("2. SRTF Scheduler");
         System.out.println("3. Non-Preemptive Priority");
         System.out.println("4. FCAIScheduler");
         int choice = scanner.nextInt();
@@ -45,12 +45,12 @@ public class Main {
                 System.out.print("Enter 1 to use console input or 2 to read from file: ");
                 int SRTFchoice = scanner.nextInt();
 
-                NonPreemptiveSRTF SRTFscheduler;
+                SRTFScheduler SRTFscheduler;
                 if (SRTFchoice == 2) {
                     String fileName = "input.txt";
-                    SRTFscheduler = NonPreemptiveSRTF.readFromFile(fileName);
+                    SRTFscheduler = SRTFScheduler.readFromFile(fileName);
                 } else {
-                    SRTFscheduler = NonPreemptiveSRTF.readFromConsole(scanner);
+                    SRTFscheduler = SRTFScheduler.readFromConsole(scanner);
                 }
                 SRTFscheduler.schedule();
                 SRTFscheduler.printResults();

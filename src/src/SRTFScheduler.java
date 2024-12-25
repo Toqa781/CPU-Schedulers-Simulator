@@ -5,7 +5,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Scanner;
 
-public class NonPreemptiveSRTF {
+public class SRTFScheduler {
     private final List<Process> processes = new ArrayList<>();
     private final List<String> executionOrder = new ArrayList<>();
     private int contextSwitchTime;
@@ -30,9 +30,9 @@ public class NonPreemptiveSRTF {
     }
 
     //default constructor
-    public NonPreemptiveSRTF() {}
+    public SRTFScheduler() {}
     //constructor to initialize the context switch time
-    public NonPreemptiveSRTF(int contextSwitchTime) {
+    public SRTFScheduler(int contextSwitchTime) {
         this.contextSwitchTime = contextSwitchTime;
     }
 
@@ -173,14 +173,14 @@ public class NonPreemptiveSRTF {
         }
     }
 
-    static NonPreemptiveSRTF readFromConsole(Scanner scanner) {
+    static SRTFScheduler readFromConsole(Scanner scanner) {
         System.out.print("Enter number of processes: ");
         int n = scanner.nextInt();
 
         System.out.print("Enter context switching time: ");
         int contextSwitchTime = scanner.nextInt();
 
-        NonPreemptiveSRTF scheduler = new NonPreemptiveSRTF(contextSwitchTime);
+        SRTFScheduler scheduler = new SRTFScheduler(contextSwitchTime);
 
         for (int i = 0; i < n; i++) {
             System.out.print("Enter Process Name: ");
@@ -203,8 +203,8 @@ public class NonPreemptiveSRTF {
         return scheduler;
     }
 
-    static NonPreemptiveSRTF readFromFile(String fileName) {
-        NonPreemptiveSRTF scheduler = null;
+    static SRTFScheduler readFromFile(String fileName) {
+        SRTFScheduler scheduler = null;
 
         try (Scanner fileScanner = new Scanner(new java.io.File(fileName))) {
             // Read number of processes
@@ -213,7 +213,7 @@ public class NonPreemptiveSRTF {
             // Read context switching time
             int contextSwitchTime = fileScanner.nextInt();
 
-            scheduler = new NonPreemptiveSRTF(contextSwitchTime);
+            scheduler = new SRTFScheduler(contextSwitchTime);
 
             // Read process data
             for (int i = 0; i < n; i++) {
@@ -238,7 +238,7 @@ public class NonPreemptiveSRTF {
         System.out.print("Enter 1 to use console input or 2 to read from file: ");
         int choice = scanner.nextInt();
 
-        NonPreemptiveSRTF scheduler;
+        SRTFScheduler scheduler;
         if (choice == 2) {
             String fileName = "input.txt";
             scheduler = readFromFile(fileName);
