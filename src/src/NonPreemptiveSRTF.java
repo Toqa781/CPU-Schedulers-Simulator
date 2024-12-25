@@ -10,6 +10,25 @@ public class NonPreemptiveSRTF {
     private final List<String> executionOrder = new ArrayList<>();
     private int contextSwitchTime;
 
+    private Process findNextProccess(int currentTime, Process previousProcess) {
+        int finalCurrentTime = currentTime;
+        Process currentProccessInCaseOfStarvation = processes.stream()
+                .filter(p -> !p.isCompleted && p.arrivalTime <= finalCurrentTime)
+                .max(Comparator.comparingInt(p -> p.waitingTime))
+                .orElse(previousProcess);
+
+
+        Process currentProcess = processes.stream()
+                .filter(p -> !p.isCompleted && p.arrivalTime <= finalCurrentTime)
+                .min(Comparator.comparingInt(p -> p.remainingBurstTime))
+                .orElse(null);
+
+        if(currentProccessInCaseOfStarvation.waitingTime>5){
+            return currentProccessInCaseOfStarvation;
+        }
+        return currentProcess;
+    }
+
     //default constructor
     public NonPreemptiveSRTF() {}
     //constructor to initialize the context switch time
@@ -36,12 +55,8 @@ public class NonPreemptiveSRTF {
                 }
             }
 
-            // Find the process with the shortest remaining burst time that is ready to execute
-            int finalCurrentTime = currentTime;
-            Process currentProcess = processes.stream()
-                    .filter(p -> !p.isCompleted && p.arrivalTime <= finalCurrentTime)
-                    .min(Comparator.comparingInt(p -> p.remainingBurstTime))
-                    .orElse(null);
+            // Find the next process to execute
+            Process currentProcess = findNextProccess(currentTime, previousProcess);
 
             if (currentProcess == null) {
                 // No process is ready, simulate idle time
@@ -61,6 +76,7 @@ public class NonPreemptiveSRTF {
             // Execute the current process
             executionOrder.add(currentProcess.name);
             currentProcess.remainingBurstTime--;
+            currentProcess.waitingTime=0;//reset waiting time to ensure that no starvation will happen.
             currentTime++;
 
             // Check if the current process is completed
