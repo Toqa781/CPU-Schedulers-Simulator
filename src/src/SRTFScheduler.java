@@ -11,7 +11,7 @@ public class SRTFScheduler {
     private int contextSwitchTime;
 
     private Process findNextProccess(int currentTime, Process previousProcess) {
-        int finalCurrentTime = currentTime;
+       final int finalCurrentTime = currentTime;
         Process currentProccessInCaseOfStarvation = processes.stream()
                 .filter(p -> !p.isCompleted && p.arrivalTime <= finalCurrentTime)
                 .max(Comparator.comparingInt(p -> p.waitingTime))
@@ -47,8 +47,9 @@ public class SRTFScheduler {
         int completed = 0;   // Tracks the number of completed processes
         Process previousProcess = null; // Tracks the process executed in the previous cycle
 
-        // calculating waiting time for each process.
         while (completed < processes.size()) {
+
+            // calculating waiting time for each process.
             for (Process process : processes) {
                 if (!process.isCompleted && process.arrivalTime <= currentTime && process != previousProcess) {
                     process.waitingTime++; // Increment waiting time for aging
