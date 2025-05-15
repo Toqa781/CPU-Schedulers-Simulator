@@ -1,5 +1,4 @@
 # CPU-Schedulers
-# CPU-Schedulers
 
 # Overview
 
